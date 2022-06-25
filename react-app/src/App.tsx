@@ -1,10 +1,15 @@
 import React, { useEffect, useState, useReducer } from 'react';
-import { Helmet } from "react-helmet";
-import { Label, Table, Segment, Modal, Header, Form, TextArea, Dropdown, Button, Icon, Divider, Checkbox, Search, Grid, Message } from 'semantic-ui-react';
 import _ from 'lodash';
+import { Helmet } from "react-helmet";
+import { Label, Table, Segment, Modal, Header, Form, TextArea, Dropdown, Button, Icon, Divider, Checkbox, Grid, Message } from 'semantic-ui-react';
+import { useWindowDimensions } from './windowDimensions';
+import { SearchBox, TagDropDown } from './UI_Components';
+import { AddTask, DeleteTask, getListData, UpdateTask } from './FirebaseAccess';
+import { BrowserRouter as Router, Navigate, Route, Routes, useParams } from "react-router-dom";
+import Login from './login';
+import UserLists from './userlists';
 import 'semantic-ui-css/semantic.min.css'
 import './App.css';
-const backend_uri = "/api/";
 
 interface searchBoxRep { key: string, title: string, description: string, tags: Array<string>, taskStatus: string };
 interface taskRowRep { _id: string, name: string, desc: string, tags: Array<string>, taskStatus: string }
@@ -13,62 +18,9 @@ const statuses = [{ key: "Not Started", text: "Not Started", value: "Not Started
 { key: "Completed", text: "Completed", value: "Completed" }];
 
 
-
-function getWindowDimensions() {
-  const { innerWidth: width, innerHeight: height } = window;
-  return {
-    width,
-    height
-  };
-}
-
-function useWindowDimensions() {
-  const [windowDimensions, setWindowDimensions] = useState(
-    getWindowDimensions()
-  );
-
-  useEffect(() => {
-    function handleResize() {
-      setWindowDimensions(getWindowDimensions());
-    }
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  return windowDimensions;
-}
-
-
-const TagDropDown = (props: { tagSet: Array<string>, onChange: any, currentTags: Array<string> }) => {
-  let initOptions: Array<{ key: string, text: string, value: string }> = [];
-  props.tagSet.forEach(tag => {
-    initOptions.push({ key: tag, text: tag, value: tag });
-  });
-
-  const [options, setOptions] = useState(initOptions);
-
-  const handleAddition = (e: {}, { value }: any) => {
-    setOptions([{ key: value, text: value, value: value }, ...options]);
-  }
-  const handleChange = (e: {}, { value }: any) => { props.onChange(value); }
-  return (
-    <Dropdown
-      options={options}
-      value={props.currentTags}
-      placeholder='Select Tag'
-      search
-      selection
-      fluid
-      multiple
-      allowAdditions
-      onAddItem={handleAddition}
-      onChange={handleChange}
-    />
-  );
-}
 const TaskModal = (props: { taskInfo: taskRowRep, tagSet: Array<string>, refreshCallback: any, isCreate: boolean, children: React.ReactNode; }) => {
-
+  let params = useParams();
+  const testinglistname = params.listid ? params.listid : "";
   const [open, setOpen] = useState<boolean>(false);
   const [taskName, setTaskName] = useState<string>(props.taskInfo.name);
   const [taskDesc, setTaskDesc] = useState<string>(props.taskInfo.desc);
@@ -97,36 +49,29 @@ const TaskModal = (props: { taskInfo: taskRowRep, tagSet: Array<string>, refresh
           setIsError(true);
           return;
         }
-
         setIsError(false);
         console.log("Adding Task", taskName);
-        fetch(backend_uri + "createtask", {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            name: taskName,
-            desc: taskDesc,
-            tags: tags,
-            taskStatus: taskStatus
-          })
-        })
-          .then(res => {
-            if (res.ok) {
-              console.log("Task Added");
-              setOpen(false);
-              props.refreshCallback();
-              // Reset the form
-              setTaskName(props.taskInfo.name);
-              setTaskDesc(props.taskInfo.desc);
-              setTags(props.taskInfo.tags);
-              setTaskStatus(props.taskInfo.taskStatus);
-            }
-            else {
-              console.log("Task Addition Failed");
-            }
-          });
+
+        AddTask(testinglistname, {
+          _id: props.taskInfo._id,
+          name: taskName,
+          desc: taskDesc,
+          tags: tags,
+          taskStatus: taskStatus
+        }).then(res => {
+          if (res) {
+            console.log("Task Added");
+            props.refreshCallback();
+            setOpen(false);
+
+            // Reset the form
+            setTaskName(props.taskInfo.name);
+            setTaskDesc(props.taskInfo.desc);
+            setTags(props.taskInfo.tags);
+            setTaskStatus(props.taskInfo.taskStatus);
+          }
+          else console.log("Task Addition Failed");
+        });
       }}>
         <Icon name='checkmark' /> Save
       </Button>
@@ -135,26 +80,20 @@ const TaskModal = (props: { taskInfo: taskRowRep, tagSet: Array<string>, refresh
     <>
       <Button.Group floated="left">
         <Button negative onClick={() => {
-          console.log("Deleting Task", taskName);
-          fetch(backend_uri + "deletetask", {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              _id: props.taskInfo._id,
-            })
-          })
-            .then(res => {
-              if (res.ok) {
-                console.log("Task Deleted");
-                setOpen(false);
-                props.refreshCallback();
-              }
-              else {
-                console.log("Task Delete Failed");
-              }
-            });
+          DeleteTask(testinglistname, {
+            _id: props.taskInfo._id,
+            name: taskName,
+            desc: taskDesc,
+            tags: tags,
+            taskStatus: taskStatus
+          }).then(res => {
+            if (res) {
+              console.log("Task Deleted");
+              props.refreshCallback();
+              setOpen(false);
+            }
+            else console.log("Task Deletion Failed");
+          });
         }}>Delete Task</Button>
       </Button.Group>
 
@@ -167,35 +106,29 @@ const TaskModal = (props: { taskInfo: taskRowRep, tagSet: Array<string>, refresh
       }}>Cancel</Button>
 
       <Button color='green' onClick={() => {
+
         if (taskName === "") {
           setIsError(true);
           return;
         }
         setIsError(false);
-        console.log("Updating Task", taskStatus);
-        fetch(backend_uri + "updatetask", {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            _id: props.taskInfo._id,
-            name: taskName,
-            desc: taskDesc,
-            tags: tags,
-            taskStatus: taskStatus
-          })
-        })
-          .then(res => {
-            if (res.ok) {
-              console.log("Task Updated");
-              setOpen(false);
-              props.refreshCallback();
-            }
-            else {
-              console.log("Task Update Failed");
-            }
-          });
+        console.log("Updating Task", taskName);
+
+        UpdateTask(testinglistname, {
+          _id: props.taskInfo._id,
+          name: taskName,
+          desc: taskDesc,
+          tags: tags,
+          taskStatus: taskStatus
+        }).then(res => {
+          if (res) {
+            console.log("Task Updated");
+            props.refreshCallback();
+            setOpen(false);
+          }
+          else console.log("Task Update Failed");
+        });
+
       }}>
         <Icon name='checkmark' /> Save
       </Button>
@@ -252,79 +185,12 @@ const TaskModal = (props: { taskInfo: taskRowRep, tagSet: Array<string>, refresh
     </Modal>);
 }
 TaskModal.defaultProps = { isCreate: false, taskInfo: { _id: "", name: "", desc: "", tags: [], taskStatus: "Not Started" } };
-function SearchBox(props: { source: Array<searchBoxRep>, searchInDesc: boolean, updateValue: any }) {
-  const initialState = {
-    loading: false,
-    results: [],
-    value: '',
-  }
-  function SearchBoxReducer(state: any, action: any) {
-    switch (action.type) {
-      case 'CLEAN_QUERY':
-        return initialState
-      case 'START_SEARCH':
-        return { ...state, loading: true, value: action.query }
-      case 'FINISH_SEARCH':
-        return { ...state, loading: false, results: action.results }
-      case 'UPDATE_SELECTION':
-        return { ...state, value: action.selection }
-
-      default:
-        throw new Error()
-    }
-  }
-  const [state, dispatch] = useReducer(SearchBoxReducer, initialState)
-  const { loading, results, value } = state
-
-  // Update results while typing
-  const timeoutRef = React.useRef(0)
-  const handleSearchChange = React.useCallback((e: any, data: any) => {
-    clearTimeout(timeoutRef.current)
-    dispatch({ type: 'START_SEARCH', query: data.value })
-
-    timeoutRef.current = window.setTimeout(() => {
-      if (data.value.length === 0) {
-        dispatch({ type: 'CLEAN_QUERY' })
-        return
-      }
-
-      const re = new RegExp(_.escapeRegExp(data.value), 'i');
-      const isMatch = !props.searchInDesc ? (result: any) => re.test(result.title) : (result: any) => re.test(result.title) || re.test(result.description);
-      dispatch({
-        type: 'FINISH_SEARCH',
-        results: _.filter(props.source, isMatch),
-      })
-    }, 300)
-  }, [props.source, props.searchInDesc])
-  useEffect(() => {
-    dispatch({ type: 'FINISH_SEARCH', results: props.source })
-    return () => {
-      clearTimeout(timeoutRef.current)
-    }
-  }, [props.source])
-
-  useEffect(() => { props.updateValue(value) }, [value, props]);
-
-  return (
-
-    <Search
-      fluid
-      size='large'
-      loading={loading}
-      placeholder='Search...'
-      onResultSelect={(e, data) => {
-        dispatch({ type: 'UPDATE_SELECTION', selection: data.result.title });
-      }}
-      onSearchChange={handleSearchChange}
-      results={results}
-      value={value}
-    />
-
-  )
-}
 
 const TaskTable = () => {
   const [tagSet, setTagSet] = useState<Array<string>>(new Array<string>());
+  let params = useParams();
+  const testinglistname = params.listid ? params.listid : "";
+
 
   // Main Table States: Sorting Column, Table Data, Sorting Direction
   function sortReducer(state: any, action: any) {
@@ -370,7 +236,7 @@ const TaskTable = () => {
   const isSmall = width < 1540;
 
   // Initial Set-Up, to replace with backend query
-  const initialiseData = () => {
+  const initialiseData = async () => {
     /*
     let initTasks: Array<taskRowRep> = [
       { _id: "1", name: 'Learn HTML', desc: "Create at least something", tags: ['Task 1.1', 'Task 1.2', "Brandon", "Hello", "hello"], taskStatus: "Not Started" },
@@ -382,50 +248,47 @@ const TaskTable = () => {
       { _id: "7", name: 'Learn C#', desc: "Create at least an game", tags: ['Task 3.1', 'Task 3.2'], taskStatus: "Completed" },
     ];*/
 
-    const requestOptions = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    };
-    fetch(backend_uri + "getdata", requestOptions)
-      .then(response => response.json())
-      .then(initTasks => {
-        console.log("initTasks: ", initTasks);
-        // Initialise States
-        dispatch({ type: 'RESET', payload: initTasks });
-        setBackupData(initTasks);
-        // Convert to SearchBox format {index, title, description, tags, taskStatus}
-        var initSearchData: Array<searchBoxRep> =
-          initTasks.map((task: taskRowRep) => { return { _id: task._id, title: task.name, description: task.desc, tags: task.tags, taskStatus: task.taskStatus } });
-        setSearchData(initSearchData);
+    let initTasks = await getListData(testinglistname);
 
-        let initTagSet = new Array<string>();
-        initTasks.forEach((task: taskRowRep) => {
-          task.tags.forEach(tag => {
-            initTagSet.push(tag);
-          });
-        });
-        initTagSet = Array.from(new Set(initTagSet)); // Remove duplicates
-        initTagSet.sort((a, b) => {                   // Sort alphabetically
-          return (a.toLowerCase() > b.toLowerCase()) ? 1 : -1;
-        });
+    console.log("initTasks: ", initTasks);
+    // Initialise States
+    dispatch({ type: 'RESET', payload: initTasks });
+    setBackupData(initTasks);
+    // Convert to SearchBox format {index, title, description, tags, taskStatus}
+    var initSearchData: Array<searchBoxRep> =
+      initTasks.map((task: taskRowRep) => { return { key: task._id, title: task.name, description: task.desc, tags: task.tags, taskStatus: task.taskStatus } });
+    setSearchData(initSearchData);
 
-        // Convert to Search Tag Dropdown Format {key, text, value}
-        var initsearchTagOptions = new Array<{ key: string, text: string, value: string }>();
-        initTagSet.forEach(tag => {
-          initsearchTagOptions.push({ key: tag, text: tag, value: tag });
-        });
+    let initTagSet = new Array<string>();
+    initTasks.forEach((task: taskRowRep) => {
+      task.tags.forEach(tag => {
+        initTagSet.push(tag);
+      });
+    });
+    initTagSet = Array.from(new Set(initTagSet)); // Remove duplicates
+    initTagSet.sort((a, b) => {                   // Sort alphabetically
+      return (a.toLowerCase() > b.toLowerCase()) ? 1 : -1;
+    });
 
-        setSearchTagOptions(initsearchTagOptions);
-        setTagSet(initTagSet);
-      })
-      .catch(error => console.log('Error Getting Data from Server: ', error));
+    // Convert to Search Tag Dropdown Format {key, text, value}
+    var initsearchTagOptions = new Array<{ key: string, text: string, value: string }>();
+    initTagSet.forEach(tag => {
+      initsearchTagOptions.push({ key: tag, text: tag, value: tag });
+    });
+
+    setSearchTagOptions(initsearchTagOptions);
+    setTagSet(initTagSet);
+
   }
 
-  useEffect(initialiseData, []);
+  useEffect(() => {
+    initialiseData().catch(err => {
+      console.log("Error: ", err);
+    });
+  }, []);
 
   // ===== Handle Searching =====
   // Update Filters
-
   useEffect(() => {
     let newSearchOptions: Array<searchBoxRep> =
       backupData.map((task: taskRowRep) => { return { key: task._id, title: task.name, description: task.desc, tags: task.tags, taskStatus: task.taskStatus } });
@@ -480,21 +343,21 @@ const TaskTable = () => {
   useEffect(() => {
     if (isSmall) {
       setLong_add(
-      <Grid.Row>
-            <Grid.Column>
-              <Segment style={{ display: "flex", justifyContent: "center", alignItems: "center" }} >
-                <TaskModal tagSet={tagSet} refreshCallback={initialiseData} isCreate={true}>
-                  <Button size='huge' fluid  >
-                    <Icon name='plus circle' className='addIcon' />
-                    Add Task
-                  </Button>
-                </TaskModal>
-              </Segment>
-            </Grid.Column>
-          </Grid.Row>);
+        <Grid.Row>
+          <Grid.Column>
+            <Segment style={{ display: "flex", justifyContent: "center", alignItems: "center" }} >
+              <TaskModal tagSet={tagSet} refreshCallback={initialiseData} isCreate={true}>
+                <Button size='huge' fluid  >
+                  <Icon name='plus circle' className='addIcon' />
+                  Add Task
+                </Button>
+              </TaskModal>
+            </Segment>
+          </Grid.Column>
+        </Grid.Row>);
       setShort_add(<></>);
     }
-    else{
+    else {
       setLong_add(<></>);
       setShort_add(<Grid.Column width={2}>
         <Segment style={{ display: "flex", justifyContent: "center", alignItems: "center" }} >
@@ -536,9 +399,9 @@ const TaskTable = () => {
                   </Grid.Column>
                   <Grid.Column tablet={5} computer={2} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
 
-                      <Form.Field  >
-                        <Checkbox label='Search in Descriptions' onChange={(e: any, d: any) => { setSearchInDesc(d.checked); }} />
-                      </Form.Field>
+                    <Form.Field  >
+                      <Checkbox label='Search in Descriptions' onChange={(e: any, d: any) => { setSearchInDesc(d.checked); }} />
+                    </Form.Field>
                   </Grid.Column>
                   <Grid.Column computer={9} tablet={16} style={{ display: "flex", justifyContent: "center" }} >
                     <Grid style={{ width: "110%" }} stackable>
@@ -656,28 +519,39 @@ const MainBodySegment = () => {
     <div className="mainBodySegment">
       <Segment>
         <div style={{ textAlign: 'center' }}>
-          <h1>Brandon's "Modern" To-Do App</h1>
+          <h1>Brandon's Collaborative To-Do App</h1>
+        <Button basic href="/userlists">My Lists</Button>
         </div>
         <Divider></Divider>
         <TaskTable />
       </Segment >
-    </div >
+    </div>
   );
 }
 
 function App() {
   useEffect(() => {
-    document.title = "Modern TODO App";
-  });
+    document.title = "Collaborative TODO App";
+  }, []);
 
   return (
     <div
       className='App' >
       <Helmet>
-        <style>{"body { background-color: #eddefa; }"}</style>
+        <style>{"body { background-color: #b0e8dd }"}</style>
       </Helmet>
 
-      <MainBodySegment />
+      <Router>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/userlists" element={<UserLists />} />
+          <Route path="/dashboard/:listid" element={<MainBodySegment />} />
+        </Routes>
+
+      </Router>
+      {//<MainBodySegment />
+      }
+
     </div >
   );
 }
