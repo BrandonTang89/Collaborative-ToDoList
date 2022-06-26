@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { Segment, Header, Grid, Button, Card, Modal, Icon, Form, TextArea, Message, Label, Menu } from 'semantic-ui-react';
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { logout, getUserlists, UpdateList, AddList, DeleteList, getUserName } from "./FirebaseAccess";
 import { UsersDropDown } from "./UI_Components";
 const auth = getAuth();
 
 const ListModal = (props: { listInfo: { id: string, name: string, desc: string, users: Array<string>, owner: string }, refreshCallback: any, isCreate: boolean, children: React.ReactNode; }) => {
     const [open, setOpen] = useState<boolean>(false);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false)
     const [listName, setListName] = useState<string>(props.listInfo.name);
     const [listDesc, setListDesc] = useState<string>(props.listInfo.desc);
     const [users, setUsers] = useState<Array<string>>(props.listInfo.users);
@@ -67,22 +68,51 @@ const ListModal = (props: { listInfo: { id: string, name: string, desc: string, 
         <>
             <Button.Group floated="left">
                 <Button negative onClick={() => {
-                    DeleteList({
-                        id: props.listInfo.id,
-                        name: listName,
-                        desc: listDesc,
-                        users: users,
-                        owner: owner
-                    }).then(res => {
-                        if (res) {
-                            console.log("List Deleted");
-                            props.refreshCallback();
-                            setOpen(false);
-                        }
-                        else console.log("List Deletion Failed");
-                    });
+                    setConfirmDeleteOpen(true);
+
                 }}>Delete List</Button>
             </Button.Group>
+            <Modal
+                onClose={() => setConfirmDeleteOpen(false)}
+                open={confirmDeleteOpen}
+                size='small'
+            >
+                <Modal.Header>Confirm Deletion</Modal.Header>
+                <Modal.Content>
+                    <header>Are you sure you want to delete {props.listInfo.name}?</header>
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button
+                        content='Cancel'
+                        onClick={() => {
+                            setConfirmDeleteOpen(false);
+                        }}
+                    />
+                    <Button
+                        negative
+                        icon='x'
+                        content='Delete List'
+                        onClick={() => {
+                            DeleteList({
+                                id: props.listInfo.id,
+                                name: listName,
+                                desc: listDesc,
+                                users: users,
+                                owner: owner
+                            }).then(res => {
+                                if (res) {
+                                    console.log("List Deleted");
+                                    props.refreshCallback();
+                                    setOpen(false);
+                                    setConfirmDeleteOpen(false);
+                                }
+                                else console.log("List Deletion Failed");
+                            });
+                        }}
+                    />
+
+                </Modal.Actions>
+            </Modal>
 
             <Button onClick={() => {
                 setOpen(false);
@@ -230,7 +260,7 @@ function UserLists() {
                 </Menu.Menu>
             </Menu>
 
-            <Segment attached='bottom' key='user list segment'>
+            <Segment attached='bottom' key='user list segment' style={{backgroundColor: "#ededed"}}>
                 <Grid doubling stackable columns={5} stretched>
                     <Grid.Column>
                         <ListModal key={(auth.currentUser == null ? "" : (auth.currentUser.email == null ? "" : auth.currentUser.email))}
@@ -242,7 +272,7 @@ function UserLists() {
                             refreshCallback={initialiseUserLists}
                             isCreate={true}>
                             <Card link>
-                                <Card.Content style={{ backgroundColor: "#dce8e5" }}>
+                                <Card.Content style={{ backgroundColor: "#f7f7f7" }}>
                                     <div style={{ height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
                                         <h1 style={{ color: "black" }}> + New List</h1>
 

@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useReducer } from 'react';
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Label, Table, Segment, Modal, Header, Form, TextArea, Dropdown, Button, Icon, Checkbox, Grid, Message, Menu } from 'semantic-ui-react';
 import _ from 'lodash';
 import { AddTask, DeleteTask, getListData, UpdateTask, getListName, logout } from './FirebaseAccess';
 import { useWindowDimensions } from './windowDimensions';
 import { SearchBox, TagDropDown } from './UI_Components';
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
+const auth = getAuth();
 interface searchBoxRep { key: string, title: string, description: string, tags: Array<string>, taskStatus: string };
 interface taskRowRep { _id: string, name: string, desc: string, tags: Array<string>, taskStatus: string }
 const statuses = [{ key: "Not Started", text: "Not Started", value: "Not Started" },
@@ -244,7 +246,7 @@ const TaskTable = () => {
 
         let initTasks = await getListData(listid);
 
-        console.log("initTasks: ", initTasks);
+        // console.log("initTasks: ", initTasks);
         // Initialise States
         dispatch({ type: 'RESET', payload: initTasks });
         setBackupData(initTasks);
@@ -518,9 +520,17 @@ const DashboardBodySegment = () => {
         setListname(initlistname);
     }
 
+    const navigate = useNavigate();
     useEffect(() => {
-        readListName();
+        onAuthStateChanged(auth, user => {
+            if (!user) {
+                navigate("/");
+            }
+            console.log("User Authenticated");
+            readListName();
+        });
     }, []);
+
     return (
         <div className="mainBodySegment">
             <Menu attached='top' size='huge' key='menu' stackable>
@@ -529,7 +539,7 @@ const DashboardBodySegment = () => {
                         Collaborative To-Do List
                     </Menu.Item>
                     <Menu.Item  >
-                        Current List: <b>{listname}</b>
+                        Current List: &nbsp; <b>{listname}</b>
                     </Menu.Item>
                 </Menu.Menu>
 
@@ -545,7 +555,7 @@ const DashboardBodySegment = () => {
                 </Menu.Menu>
             </Menu>
 
-            <Segment attached='bottom' key='user list segment'>
+            <Segment attached='bottom' key='user list segment' style={{backgroundColor: "#ededed"}}>
                 <TaskTable />
             </Segment >
         </div>
