@@ -13,7 +13,7 @@ import './App.css';
 
 function App() {
   useEffect(() => {
-    document.title = "Collaborative TODO App";
+    // document.title = "Collaborative TODO App";
     console.log(app)
   }, []);
 
