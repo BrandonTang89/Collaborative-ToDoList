@@ -24,6 +24,10 @@ The webapp is built using the Firebase Framework with a React.js front-end. With
 
 - Hosting
 
+The Firestore Architecture is as such
+
+<img src="./public/database_archi.svg" alt="database architecture diagram" />
+
 ## Building
 
 After cloning the repo, build using
@@ -33,4 +37,6 @@ Note that the above command removes a duplicate `;` in `node_modules/semantic-ui
 
 You can then serve using `serve -s build` after installing `serve` globally using `npm`.
 
+## Deployment
 
+This app was hosted on Firebase Hosting, serving from the `./build` directory. 
