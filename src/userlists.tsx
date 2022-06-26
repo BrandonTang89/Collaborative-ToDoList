@@ -288,8 +288,10 @@ function UserLists() {
                                     <Card.Content href={"dashboard/" + list.id}>
 
                                         <Card.Header>{list.name}
-                                            <Label attached='top right'>Owner</Label></Card.Header>
-                                        <Card.Meta style={{wordWrap: "break-word"}}>{list.id}</Card.Meta>
+                                            {//<Label attached='top right'>Owner</Label>
+                                            }
+                                        </Card.Header>
+                                        <Card.Meta style={{ wordWrap: "break-word" }}>{list.id}</Card.Meta>
                                         <Card.Description>{list.desc}</Card.Description>
                                     </Card.Content>
 
@@ -308,7 +310,7 @@ function UserLists() {
                                         <Card.Description>{list.desc}</Card.Description>
                                     </Card.Content>
                                     <Card.Content extra>
-                                        <p style={{wordWrap: "break-word"}}>Owner: {list.owner}</p>
+                                        <p style={{ wordWrap: "break-word" }}>Owner: {list.owner}</p>
                                     </Card.Content>
                                 </Card>
                             </Grid.Column>
