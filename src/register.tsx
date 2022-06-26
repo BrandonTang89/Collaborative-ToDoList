@@ -27,7 +27,7 @@ function Register() {
                         <Header>Register</Header>
                         <Form.Input
                             fluid
-                            icon='user'
+                            icon='id card'
                             iconPosition='left'
                             placeholder='Name'
                             value={name}
