@@ -7,7 +7,7 @@ import {
     getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword,
     sendPasswordResetEmail, signOut
 } from "firebase/auth";
-import { collection, getFirestore, getDocs, setDoc, doc, addDoc, deleteDoc, query, where } from "firebase/firestore";
+import { collection, getFirestore, getDocs, setDoc, doc, addDoc, deleteDoc, query, where, getDoc } from "firebase/firestore";
 
 // TODO: Add SDKs for Firebase products that you want to use
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -24,7 +24,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -46,17 +46,20 @@ const signInWithGoogle = async () => {
                 email: user.email,
             });
         }
+        return true;
     } catch (err) {
-        console.error(err);
-        alert(err);
+        console.error(err); 
+        return false;
     }
 };
 const logInWithEmailAndPassword = async (email, password) => {
     try {
         await signInWithEmailAndPassword(auth, email, password);
+        return true;
     } catch (err) {
         console.error(err);
-        alert(err);
+        // alert(err);
+        return false;
     }
 };
 
@@ -66,9 +69,9 @@ const registerWithEmailAndPassword = async (name, email, password) => {
         const user = res.user;
         await addDoc(collection(db, "users"), {
             uid: user.uid,
-            name,
+            name: name,
+            email: user.email,
             authProvider: "local",
-            email,
         });
     } catch (err) {
         console.error(err);
@@ -79,7 +82,7 @@ const registerWithEmailAndPassword = async (name, email, password) => {
 const sendPasswordReset = async (email) => {
     try {
         await sendPasswordResetEmail(auth, email);
-        alert("Password reset link sent!");
+        //alert("Password reset link sent!");
     } catch (err) {
         console.error(err);
         alert(err);
@@ -102,11 +105,11 @@ export {
 
 // === Firebase Firestore ===
 // -- Userlists CRUD --
-interface listinforep {id:string, name:string, desc:string, users: Array<string>, owner: string};
+interface listinforep { id: string, name: string, desc: string, users: Array<string>, owner: string };
 export const getUserlists = async (user) => {
-    console.log(user.uid);
+    // console.log(user.uid);
     const querySnapshot = await getDocs(query(collection(db, "tasklists"), where("users", "array-contains", user.email)));
-    let accesiblelists: Array<{ id: string, name: string, desc:string, users:Array<string>, owner:string }> = [];
+    let accesiblelists: Array<{ id: string, name: string, desc: string, users: Array<string>, owner: string }> = [];
     querySnapshot.forEach(doc => {
         accesiblelists.push({
             id: doc.id,
@@ -121,8 +124,15 @@ export const getUserlists = async (user) => {
     return accesiblelists;
 }
 
+export const getUserName = async (user) => {
+    // console.log("getting name of", user.email);
+    const querySnapshot = await getDocs(query(collection(db, "users"), where("uid", "==", user.uid)));
 
-export const UpdateList = async (listinfo:listinforep) => {
+    return querySnapshot.docs[0].data()?.name;
+}
+
+
+export const UpdateList = async (listinfo: listinforep) => {
     const tasksColRef = collection(db, "tasklists/");
     const docRef = doc(tasksColRef, listinfo.id);
 
@@ -146,7 +156,7 @@ export const UpdateList = async (listinfo:listinforep) => {
     }
 }
 
-export const AddList = async (listinfo:listinforep) => {
+export const AddList = async (listinfo: listinforep) => {
     const tasksColRef = collection(db, "tasklists/");
 
     if (!(listinfo.users.includes(listinfo.owner))) {
@@ -169,7 +179,7 @@ export const AddList = async (listinfo:listinforep) => {
 }
 
 
-export const DeleteList = async (listinfo:listinforep) => {
+export const DeleteList = async (listinfo: listinforep) => {
     const tasksColRef = collection(db, "tasklists/");
     const docRef = doc(tasksColRef, listinfo.id);
     try {
@@ -200,9 +210,17 @@ export const getListData = async (listname: string) => {
             taskStatus: doc.data().taskstatus
         });
     });
+
+
+
     return tasks;
 }
 
+export const getListName = async (listid: string) => {
+    const listDocRef = doc(collection(db, "tasklists"), listid);
+    const listSnap = await getDoc(listDocRef);
+    return listSnap.data()?.name;
+}
 
 export const UpdateTask = async (listname: string, task: taskRowRep) => {
     const tasksColRef = collection(db, "tasklists/" + listname + "/tasks");
