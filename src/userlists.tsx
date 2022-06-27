@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Segment, Header, Grid, Button, Card, Modal, Icon, Form, TextArea, Message, Label, Menu } from 'semantic-ui-react';
+import { Segment, Header, Grid, Button, Card, Modal, Icon, Form, TextArea, Message, Menu } from 'semantic-ui-react';
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { logout, getUserlists, UpdateList, AddList, DeleteList, getUserName } from "./FirebaseAccess";
 import { UsersDropDown } from "./UI_Components";
